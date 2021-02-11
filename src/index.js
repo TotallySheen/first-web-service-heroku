@@ -10,50 +10,17 @@ const http = require('http');
 const url = require('url');
 const query = require('querystring');
 
+const jsonHandler = require('./jsonResponses.js');
+const htmlHandler = require('./htmlResponses.js');
+
+const urlStruct = {
+  '/': htmlHandler.getIndexResponse,
+  '/random-number': jsonHandler.getRandomNumberResponse,
+  notFound: htmlHandler.get404Response,
+};
+
 // 3 - locally this will be 3000, on Heroku it will be assigned
 const port = process.env.PORT || process.env.NODE_PORT || 3000;
-
-// 4 - here's our index page
-const indexPage = `
-<html>
-  <head>
-    <title>Random Number Web Service</title>
-  </head>
-  <body>
-    <h1>Random Number Web Service</h1>
-    <p>
-      Random Number Web Service - the endpoint is here --> 
-      <a href="/random-number">random-number</a> or <a href="/random-number?max=10">random-number?max=10</a>
-    </p>
-  </body>
-</html>`;
-
-// 5 - here's our 404 page
-const errorPage = `
-<html>
-  <head>
-    <title>404 - File Not Found!</title>
-  </head>
-  <body>
-    <h1>404 - File Not Found!</h1>
-    <p>Check your URL or your typing!!</p>
-    <p>:O</p>
-  </body>
-</html>`;
-
-// 6 - this will return a random number no bigger than `max`, as a string
-// we will also doing our query parameter validation here
-const getRandomNumberJSON = (max = 1) => {
-  let max2 = Number(max);
-  max2 = !max ? 1 : max;
-  max2 = max < 1 ? 1 : max;
-  const number = Math.random() * max2;
-  const responseObj = {
-    timestamp: new Date(),
-    number,
-  };
-  return JSON.stringify(responseObj);
-};
 
 // 7 - this is the function that will be called every time a client request comes in
 // this time we will look at the `pathname`, and send back the appropriate page
@@ -65,20 +32,14 @@ const onRequest = (request, response) => {
   const params = query.parse(parsedUrl.query);
   const { max } = params;
 
-  if (pathname === '/') {
-    response.writeHead(200, { 'Content-Type': 'text/html' });
-    response.write(indexPage);
-    response.end();
-  } else if (pathname === '/random-number') {
-    response.writeHead(200, { 'Content-Type': 'text/plain' });
-    response.write(getRandomNumberJSON(max));
-    response.end();
+  if (urlStruct[pathname]) {
+    urlStruct[pathname](request, response, params);
   } else {
-    response.writeHead(404, { 'Content-Type': 'text/html' });
-    response.write(errorPage);
-    response.end();
+    urlStruct.notFound(request, response, params);
   }
 };
 
 // 8 - create the server, hook up the request handling function, and start listening on `port`
 http.createServer(onRequest).listen(port);
+
+console.log('Listening on port 3000');
